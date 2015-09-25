@@ -1,6 +1,6 @@
 {
   "name": "happy-time",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Simple formatter to format exported Caato timesheets into a summarized daily time for happy project managers.",
   "main": "index.js",
   "bin": {

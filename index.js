@@ -4,11 +4,24 @@ var fs = require('fs');
 var _ = require('lodash');
 var moment = require('moment');
 var csv = require('fast-csv');
+var pjson = require('./package.json');
 var inputFile = process.argv[2] || false;
-var outputFile = process.argv[3] || 'happy-' + inputFile;
+var outputFile = process.argv[3] || false;
 
 if (inputFile) {
+  if (inputFile === '-v' || inputFile === '-version' || inputFile === '--version') {
+    process.stdout.write(pjson.name + ' @ v' + pjson.version);
+    process.exit();
+  }
+
+  if (!outputFile) {
+    var tempArray = inputFile.split('.');
+    tempArray.splice(-1, 0, 'happy');
+    outputFile = tempArray.join('.');
+  }
+
   var ws = fs.createWriteStream(outputFile);
+
   var HappyTime = function() {
     this.input = [];
   };
@@ -24,10 +37,11 @@ if (inputFile) {
         _this.input.push(data);
       })
       .on('error', function(err) {
-        console.warn('Oh no! Something went wrong while reading the file.\nPlease make sure you specify a CSV file that is semi-colon (;) separated.\n', err);
+        process.stdout.write('Oh no! Something went wrong while reading the file.\nPlease make sure you specify a CSV file that is semi-colon (;) separated.\n', err);
+        process.exit(1);
       })
       .on('end', function(){
-        console.log(_this.input.length + ' rows successfully read. Processing...\n');
+        process.stdout.write(_this.input.length + ' rows successfully read. Processing...\n\n');
         _this.outputCSV(_this.processCSV(_this.input));
       });
   };
@@ -148,29 +162,32 @@ if (inputFile) {
         }
       });
 
-      return this.rowToGrid(output2);
+      return _this.rowToGrid(output2);
     } catch (e) {
       var msg = 'Bummer! Something went wrong while processing your CSV.\nData expected in format:\n';
       msg += 'PROJECT;      TASK;                                         START;                END;                  HOURS;\n';
       msg += 'Project 87;   Calculate likelihood of snail race winners;   2015/09/03, 5:16 PM;  2015/09/03, 5:39 PM;  0,38;\n\n'
-      console.warn(msg, e);
+      process.stdout.write(msg, e);
     }
   };
 
   HappyTime.prototype.outputCSV = function(output) {
-    try {
-      csv
-        .write(output, { delimiter: ';' })
-        .pipe(ws);
-
-      console.log('Yay! Your timesheet is now happy.\n\n $ open "' + outputFile + '"');
-    } catch (e) {
-      console.log('So close! Something went wrong while writing your CSV.', e);
-    }
+    csv
+      .write(output, { delimiter: ';' })
+      .pipe(ws)
+      .on('finish', function(){
+        process.stdout.write('Yay! Your timesheet is now happy.\n\n $ open "' + outputFile + '"');
+        process.exit();
+      })
+      .on('error', function(e) {
+        process.stdout.write('So close! Something went wrong while writing your CSV.', e);
+        process.exit(1);
+      });
   };
 
   var ht = new HappyTime();
   ht.start();
 } else {
-  console.warn('Whoops. Please specify an input file.');
+  process.stdout.write('Whoops. Please specify an input file.');
+  process.exit(1);
 }
