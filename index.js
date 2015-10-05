@@ -144,21 +144,31 @@ if (inputFile) {
       var date = '';
       var hours = 0;
       var taskIndex = 0;
+      var sameTask = false;
+      var sameDay = false;
+      var hasTemp = false;
 
-
+      // Sum task times
       output1.forEach(function(row, count) {
-        var sameTask = task === row[0] ? true : false;
-        var sameDay = date === row[1] ? true : false;
+        sameTask = task === row[0] ? true : false;
+        sameDay = date === row[1] ? true : false;
+
+        if ((!sameTask || !sameDay) && hasTemp) {
+          output2[taskIndex-1] = [ task, date, _this.stringHours(hours), _this.roundHours(_this.stringHours(hours)) ];
+        }
 
         task = sameTask ? task : row[0];
         date = sameDay ? date : row[1];
         hours = sameDay && sameTask ? hours + _this.parseHours(row[2]) : _this.parseHours(row[2]);
+        hasTemp = true;
 
         if (!sameDay || !sameTask) {
           output2[taskIndex] = [ task, date, _this.stringHours(hours), _this.roundHours(_this.stringHours(hours)) ];
           taskIndex = output2.length;
+          hasTemp = false;
         } else if (output1.length === count + 1) {
           output2.push([ task, date, _this.stringHours(hours), _this.roundHours(_this.stringHours(hours)) ]);
+          hasTemp = false;
         }
       });
 
