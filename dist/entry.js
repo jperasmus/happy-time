@@ -29,6 +29,7 @@ var outputFile = process.argv[3] || false;
 
 if (inputFile) {
   (function () {
+    // Lookup version number
     if (inputFile === '-v' || inputFile === '-version' || inputFile === '--version') {
       process.stdout.write(_packageJson2['default'].name + ' @ v' + _packageJson2['default'].version);
       process.exit();
@@ -50,16 +51,24 @@ if (inputFile) {
 
     HappyTime.prototype.start = function () {
       var _this = this;
+
+      // Read in CSV timesheet
       _fastCsv2['default'].fromPath(inputFile, {
         ignoreEmpty: true,
         delimiter: ';'
-      }).on('data', function (data) {
+      })
+      // As data come in from the read stream
+      .on('data', function (data) {
         _this.input.push(data);
-      }).on('error', function (err) {
-        process.stdout.write('\n          Oh no! Something went wrong while reading the file.\n\n          Please make sure you specify a CSV file that is semi-colon (;) separated.\n\n          err');
+      })
+      // In case something goes wrong during the read
+      .on('error', function (err) {
+        process.stdout.write('\n          Oh no! Something went wrong while reading the file.\n\n          Please make sure you specify a CSV file that is semi-colon (;) separated.\n\n          Details: ' + err);
         process.exit(1);
-      }).on('end', function () {
-        process.stdout.write('\n          ' + _this.input.length + ' rows successfully read.\n          Processing...\n\n          ============================================\n\n          ');
+      })
+      // When the whole stream has been read
+      .on('end', function () {
+        process.stdout.write('\n          ' + _this.input.length + ' rows successfully read.\n\n          Processing...\n\n          ============================================\n\n          ');
         _this.outputCSV(_this.processCSV(_this.input));
       });
     };
@@ -93,8 +102,10 @@ if (inputFile) {
     };
 
     HappyTime.prototype.rowToGrid = function (rows) {
-      this.uniqueDates = _lodash2['default'].uniq(_lodash2['default'].pluck(rows, 1), false);
-      this.uniqueTasks = _lodash2['default'].uniq(_lodash2['default'].pluck(rows, 0), false);
+      var _this2 = this;
+
+      this.uniqueProjects = _lodash2['default'].uniq(_lodash2['default'].pluck(rows, 0), false);
+      this.uniqueDates = _lodash2['default'].uniq(_lodash2['default'].pluck(rows, 2), false);
       var mappedDates = _lodash2['default'].map(this.uniqueDates, function (date) {
         return (0, _moment2['default'])(date, 'YYYY-MM-DD');
       });
@@ -110,30 +121,41 @@ if (inputFile) {
       }
 
       var columnHeaders = range;
-      columnHeaders.unshift('Task');
+      columnHeaders.unshift('Project', 'Task');
 
       var output = [];
 
-      this.uniqueTasks.forEach(function (task) {
-        var newRow = {};
-        columnHeaders.forEach(function (item) {
-          newRow[item] = 0;
+      this.uniqueProjects.forEach(function (project) {
+        var projectRows = _lodash2['default'].filter(rows, function (row) {
+          return row[0] === project;
+        });
+        _this2.uniqueProjectTasks = _lodash2['default'].uniq(_lodash2['default'].pluck(projectRows, 1), false);
+
+        _this2.uniqueProjectTasks.forEach(function (task) {
+          // Set all values to 0 so that empty cells can default to zero
+          var newRow = {};
+          columnHeaders.forEach(function (item) {
+            newRow[item] = 0;
+          });
+
+          // Overwrite the Project and Task names
+          newRow.Project = project;
+          newRow.Task = task;
+          output.push(newRow);
         });
 
-        newRow.Task = task;
-        output.push(newRow);
-      });
+        // Sorted by date
+        var sortedRows = _lodash2['default'].sortBy(projectRows, function (row) {
+          return row[2];
+        });
 
-      var sortedRows = _lodash2['default'].sortBy(rows, function (row) {
-        return row[1]; // Sorted by date
-      });
-
-      sortedRows.forEach(function (outer) {
-        output = _lodash2['default'].map(output, function (inner, innerCount) {
-          if (inner.Task === outer[0]) {
-            inner[outer[1]] = outer[3];
-          }
-          return inner;
+        sortedRows.forEach(function (outer) {
+          output = _lodash2['default'].map(output, function (inner, innerCount) {
+            if (inner.Project === outer[0] && inner.Task === outer[1]) {
+              inner[outer[2]] = outer[4];
+            }
+            return inner;
+          });
         });
       });
 
@@ -146,12 +168,17 @@ if (inputFile) {
     };
 
     HappyTime.prototype.processCSV = function (input) {
-      var _this = this;
+      var _this3 = this;
+
       try {
         var _ret2 = (function () {
-          var headers = input.shift(); // eslint-disable-line
+          // Remove headers
+          _this3.inputHeaders = input.shift();
+
+          // Get consistent data structure
           var output1 = _lodash2['default'].map(input, function (row, count) {
             var newRow = [];
+            newRow.push(row[0]); // Project
             newRow.push(row[1]); // Task
             newRow.push((0, _moment2['default'])(row[2], 'YYYY/MM/DD, h:mm A').format('YYYY-MM-DD')); // Date
             newRow.push(row[4]); // Hours
@@ -159,40 +186,44 @@ if (inputFile) {
           }).sort();
 
           var output2 = [];
+          var project = '';
           var task = '';
           var date = '';
           var hours = 0;
           var taskIndex = 0;
+          var sameProject = false;
           var sameTask = false;
           var sameDay = false;
           var hasTemp = false;
 
-          // Sum task times
+          // Summarize task times
           output1.forEach(function (row, count) {
-            sameTask = task === row[0] ? true : false;
-            sameDay = date === row[1] ? true : false;
+            sameProject = project === row[0] ? true : false;
+            sameTask = task === row[1] ? true : false;
+            sameDay = date === row[2] ? true : false;
 
-            if ((!sameTask || !sameDay) && hasTemp) {
-              output2[taskIndex - 1] = [task, date, _this.stringHours(hours), _this.roundHours(_this.stringHours(hours))];
+            if ((!sameProject || !sameTask || !sameDay) && hasTemp) {
+              output2[taskIndex - 1] = [project, task, date, _this3.stringHours(hours), _this3.roundHours(_this3.stringHours(hours))];
             }
 
-            task = sameTask ? task : row[0];
-            date = sameDay ? date : row[1];
-            hours = sameDay && sameTask ? hours + _this.parseHours(row[2]) : _this.parseHours(row[2]);
+            project = sameProject ? project : row[0];
+            task = sameTask ? task : row[1];
+            date = sameDay ? date : row[2];
+            hours = sameDay && sameTask ? hours + _this3.parseHours(row[3]) : _this3.parseHours(row[3]);
             hasTemp = true;
 
-            if (!sameDay || !sameTask) {
-              output2[taskIndex] = [task, date, _this.stringHours(hours), _this.roundHours(_this.stringHours(hours))];
+            if (!sameProject || !sameTask || !sameDay) {
+              output2[taskIndex] = [project, task, date, _this3.stringHours(hours), _this3.roundHours(_this3.stringHours(hours))];
               taskIndex = output2.length;
               hasTemp = false;
             } else if (output1.length === count + 1) {
-              output2.push([task, date, _this.stringHours(hours), _this.roundHours(_this.stringHours(hours))]);
+              output2.push([project, task, date, _this3.stringHours(hours), _this3.roundHours(_this3.stringHours(hours))]);
               hasTemp = false;
             }
           });
 
           return {
-            v: _this.rowToGrid(output2)
+            v: _this3.rowToGrid(output2)
           };
         })();
 
@@ -205,10 +236,10 @@ if (inputFile) {
 
     HappyTime.prototype.outputCSV = function (output) {
       _fastCsv2['default'].write(output, { delimiter: ';' }).pipe(ws).on('finish', function () {
-        process.stdout.write('Yay! Your timesheet is now happy.\n\n          $ open "' + outputFile + '"');
+        process.stdout.write('Yay! Your timesheet is now happy.\n\n          $ open "' + outputFile + '"\n\n        ');
         process.exit();
-      }).on('error', function (e) {
-        process.stdout.write('So close! Something went wrong while writing your CSV. ' + e);
+      }).on('error', function (err) {
+        process.stdout.write('So close! Something went wrong while writing your CSV. ' + err);
         process.exit(1);
       });
     };
