@@ -146,6 +146,18 @@ if (inputFile) {
 
       let newOutput = _.map(output, (item) => _.values(item));
 
+      // Column Totals
+      let columnTotals = ['', ''];
+      _.forEach(range, (header, index) => {
+        if (index > 1) {
+          let columnValues = _.pluck(newOutput, index);
+          let columnTotal = _.reduce(columnValues, (one, two) => parseFloat(one.toString().replace(',', '.')) + parseFloat(two.toString().replace(',', '.')), 0);
+          columnTotals.push(columnTotal);
+        }
+      });
+      newOutput.push(_.map(columnTotals, (item) => item.toString().replace('.', ',')));
+
+      // Column Headers
       newOutput.unshift(columnHeaders);
       return newOutput;
     }

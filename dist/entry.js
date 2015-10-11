@@ -176,6 +176,22 @@ if (inputFile) {
             return _lodash2['default'].values(item);
           });
 
+          // Column Totals
+          var columnTotals = ['', ''];
+          _lodash2['default'].forEach(range, function (header, index) {
+            if (index > 1) {
+              var columnValues = _lodash2['default'].pluck(newOutput, index);
+              var columnTotal = _lodash2['default'].reduce(columnValues, function (one, two) {
+                return parseFloat(one.toString().replace(',', '.')) + parseFloat(two.toString().replace(',', '.'));
+              }, 0);
+              columnTotals.push(columnTotal);
+            }
+          });
+          newOutput.push(_lodash2['default'].map(columnTotals, function (item) {
+            return item.toString().replace('.', ',');
+          }));
+
+          // Column Headers
           newOutput.unshift(columnHeaders);
           return newOutput;
         }
