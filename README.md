@@ -24,7 +24,7 @@ $ happy-time caato-timesheet.csv happy-timesheet.csv
 #### OR
 ```
 $ happy-time caato-timesheet.csv
-// Will produce "happy-caato-timesheet.csv"
+// Will produce "caato-timesheet.happy.csv"
 ```
 
 ### Note

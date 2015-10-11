@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 'use strict';
-var fs = require('fs');
-var _ = require('lodash');
-var moment = require('moment');
-var csv = require('fast-csv');
-var pjson = require('./package.json');
-var inputFile = process.argv[2] || false;
-var outputFile = process.argv[3] || false;
+
+import fs from 'fs';
+import _ from 'lodash';
+import moment from 'moment';
+import csv from 'fast-csv';
+import pjson from '../package.json';
+
+let inputFile = process.argv[2] || false;
+let outputFile = process.argv[3] || false;
 
 if (inputFile) {
   if (inputFile === '-v' || inputFile === '-version' || inputFile === '--version') {
@@ -15,33 +17,46 @@ if (inputFile) {
   }
 
   if (!outputFile) {
-    var tempArray = inputFile.split('.');
+    let tempArray = inputFile.split('.');
     tempArray.splice(-1, 0, 'happy');
     outputFile = tempArray.join('.');
   }
 
-  var ws = fs.createWriteStream(outputFile);
+  let ws = fs.createWriteStream(outputFile);
 
-  var HappyTime = function() {
+  // Constructor function
+  // TODO: Rewrite using ES6 classes, just for fun
+  let HappyTime = function() {
     this.input = [];
   };
 
   HappyTime.prototype.start = function() {
-    var _this = this;
+    let _this = this;
     csv
       .fromPath(inputFile, {
         ignoreEmpty: true,
         delimiter: ';'
       })
-      .on('data', function(data){
+      .on('data', function(data) {
         _this.input.push(data);
       })
       .on('error', function(err) {
-        process.stdout.write('Oh no! Something went wrong while reading the file.\nPlease make sure you specify a CSV file that is semi-colon (;) separated.\n', err);
+        process.stdout.write(`
+          Oh no! Something went wrong while reading the file.
+
+          Please make sure you specify a CSV file that is semi-colon (;) separated.
+
+          err`);
         process.exit(1);
       })
-      .on('end', function(){
-        process.stdout.write(_this.input.length + ' rows successfully read. Processing...\n\n');
+      .on('end', function() {
+        process.stdout.write(`
+          ${_this.input.length} rows successfully read.
+          Processing...
+
+          ============================================
+
+          `);
         _this.outputCSV(_this.processCSV(_this.input));
       });
   };
@@ -55,8 +70,8 @@ if (inputFile) {
   };
 
   HappyTime.prototype.roundHours = function(hours) {
-    var segments = hours.split(',');
-    var rounded = hours;
+    let segments = hours.split(',');
+    let rounded = hours;
 
     if (segments[1]) {
       if (segments[1][0] >= 9 || (segments[1][0] >= 8 && (segments[1][1] >= 3 || false))) {
@@ -77,27 +92,27 @@ if (inputFile) {
   HappyTime.prototype.rowToGrid = function(rows) {
     this.uniqueDates = _.uniq(_.pluck(rows, 1), false);
     this.uniqueTasks = _.uniq(_.pluck(rows, 0), false);
-    var mappedDates = _.map(this.uniqueDates, function(date) {
+    let mappedDates = _.map(this.uniqueDates, function(date) {
       return moment(date, 'YYYY-MM-DD');
     });
-    var minDate = _.min(mappedDates).format('YYYY-MM-DD');
-    var maxDate = _.max(mappedDates).format('YYYY-MM-DD');
+    let minDate = _.min(mappedDates).format('YYYY-MM-DD');
+    let maxDate = _.max(mappedDates).format('YYYY-MM-DD');
 
-    var range = [];
-    var startDate = minDate;
+    let range = [];
+    let startDate = minDate;
 
     while (startDate <= maxDate) {
       range.push(startDate);
       startDate = moment(startDate, 'YYYY-MM-DD').add(1, 'd').format('YYYY-MM-DD');
     }
 
-    var columnHeaders = range;
+    let columnHeaders = range;
     columnHeaders.unshift('Task');
 
-    var output = [];
+    let output = [];
 
     this.uniqueTasks.forEach(function(task) {
-      var newRow = {};
+      let newRow = {};
       columnHeaders.forEach(function(item) {
         newRow[item] = 0;
       });
@@ -106,7 +121,7 @@ if (inputFile) {
       output.push(newRow);
     });
 
-    var sortedRows = _.sortBy(rows, function(row) {
+    let sortedRows = _.sortBy(rows, function(row) {
       return row[1];    // Sorted by date
     });
 
@@ -119,7 +134,7 @@ if (inputFile) {
       });
     });
 
-    var newOutput = _.map(output, function(item) {
+    let newOutput = _.map(output, function(item) {
       return _.values(item);
     });
 
@@ -128,33 +143,33 @@ if (inputFile) {
   };
 
   HappyTime.prototype.processCSV = function(input) {
-    var _this = this;
+    let _this = this;
     try {
-      var headers = input.shift();
-      var output1 = _.map(input, function(row, count) {
-        var newRow = [];
+      let headers = input.shift();  // eslint-disable-line
+      let output1 = _.map(input, (row, count) => {
+        let newRow = [];
         newRow.push(row[1]);  // Task
         newRow.push(moment(row[2], 'YYYY/MM/DD, h:mm A').format('YYYY-MM-DD'));   // Date
         newRow.push(row[4]);  // Hours
         return newRow;
       }).sort();
 
-      var output2 = [];
-      var task = '';
-      var date = '';
-      var hours = 0;
-      var taskIndex = 0;
-      var sameTask = false;
-      var sameDay = false;
-      var hasTemp = false;
+      let output2 = [];
+      let task = '';
+      let date = '';
+      let hours = 0;
+      let taskIndex = 0;
+      let sameTask = false;
+      let sameDay = false;
+      let hasTemp = false;
 
       // Sum task times
-      output1.forEach(function(row, count) {
+      output1.forEach((row, count) => {
         sameTask = task === row[0] ? true : false;
         sameDay = date === row[1] ? true : false;
 
         if ((!sameTask || !sameDay) && hasTemp) {
-          output2[taskIndex-1] = [ task, date, _this.stringHours(hours), _this.roundHours(_this.stringHours(hours)) ];
+          output2[ taskIndex - 1 ] = [ task, date, _this.stringHours(hours), _this.roundHours(_this.stringHours(hours)) ];
         }
 
         task = sameTask ? task : row[0];
@@ -174,10 +189,17 @@ if (inputFile) {
 
       return _this.rowToGrid(output2);
     } catch (e) {
-      var msg = 'Bummer! Something went wrong while processing your CSV.\nData expected in format:\n';
-      msg += 'PROJECT;      TASK;                                         START;                END;                  HOURS;\n';
-      msg += 'Project 87;   Calculate likelihood of snail race winners;   2015/09/03, 5:16 PM;  2015/09/03, 5:39 PM;  0,38;\n\n'
-      process.stdout.write(msg, e);
+      let msg = `
+      Bummer! Something went wrong while processing your CSV.
+
+      Data expected in format:
+      ======================================================================================================================
+      PROJECT      | TASK                                          | START                 | END                    | HOURS
+      Project 87   | Calculate likelihood of snail race winners    | 2015/09/03, 5:16 PM   | 2015/09/03, 5:39 PM    |  0,38
+      ======================================================================================================================
+
+      ${e}`;
+      process.stdout.write(msg);
     }
   };
 
@@ -185,19 +207,21 @@ if (inputFile) {
     csv
       .write(output, { delimiter: ';' })
       .pipe(ws)
-      .on('finish', function(){
-        process.stdout.write('Yay! Your timesheet is now happy.\n\n $ open "' + outputFile + '"');
+      .on('finish', function() {
+        process.stdout.write(`Yay! Your timesheet is now happy.
+
+          $ open "${outputFile}"`);
         process.exit();
       })
       .on('error', function(e) {
-        process.stdout.write('So close! Something went wrong while writing your CSV.', e);
+        process.stdout.write(`So close! Something went wrong while writing your CSV. ${e}`);
         process.exit(1);
       });
   };
 
-  var ht = new HappyTime();
+  let ht = new HappyTime();
   ht.start();
 } else {
-  process.stdout.write('Whoops. Please specify an input file.');
+  process.stdout.write(`Whoops. Please specify an input file.`);
   process.exit(1);
 }
